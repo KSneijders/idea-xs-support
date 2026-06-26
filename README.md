@@ -1,132 +1,71 @@
 # XS Check — JetBrains plugin
 
-JetBrains/IntelliJ plugin that brings language support for AoE2:DE's **XS** scripting
-language: diagnostics, completion, hover docs, and semantic highlighting. It is a thin
-editor integration around the upstream [`xs-check`][xs-check] LSP server, driven through
-[LSP4IJ].
+Language support for AoE2:DE's **XS** scripting language in IntelliJ-based IDEs
+(IntelliJ IDEA, PyCharm, and friends).
 
-The Rust core is vendored as a git submodule and built from source by Gradle.
-Configuration is delivered the standard LSP way (`workspace/configuration`) rather than via
-a patched server. The submodule is otherwise kept clean; the only local change is a single
-bug-fix carried as a patch in `patches/` (see [Local patches](#local-patches)), pending
-upstream.
+**Features**
 
-[xs-check]: https://github.com/Divy1211/xs-check
-[LSP4IJ]: https://plugins.jetbrains.com/plugin/23257-lsp4ij
+- Error & warning diagnostics
+- Code completion
+- Hover documentation
+- Syntax & semantic highlighting
 
-## Layout
+Under the hood it's a thin wrapper around the
+[`xs-check`](https://github.com/Divy1211/xs-check) language server, integrated via
+[LSP4IJ](https://plugins.jetbrains.com/plugin/23257-lsp4ij).
 
-```
-.
-├── build.gradle.kts   # plugin build + the cargo "port" step (buildLsp/bundleLsp)
-├── src/main/...        # the JetBrains plugin (Kotlin) + resources
-├── scripts/           # release.sh / release.ps1
-├── patches/           # local fixes applied onto the xs-check submodule
-└── xs-check/          # git submodule -> Divy1211/xs-check (the Rust LSP core)
-```
+## Install
 
-Key Kotlin pieces:
+1. Grab the plugin `.zip` — from a GitHub release, or build it yourself (see below).
+2. In your IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the `.zip`.
+3. Restart the IDE, then open a `.xs` file.
 
-- `XsServerFactory` — registers the LSP server and extracts the bundled binary (cached by
-  content hash, so a rebuilt server is always re-extracted).
-- `XsLanguageClient` — answers the server's `workspace/configuration` request (section
-  `xsc`) from the per-project settings. **This is how config reaches the server.**
-- `XsLexer` / `XsSyntaxHighlighter` — lexer-based highlighting (keywords, types, functions,
-  constants, doc `@tags`).
-- `XsSemanticTokensColorsProvider` — colors the LSP `parameter` semantic token; the default
-  XS colors ship in `src/main/resources/colors/`.
-- `XsSettings` / `XsSettingsConfigurable` — the per-project settings UI (prelude path,
-  include directories, ignored warnings).
+Plugin options live under **Settings → Tools → XS Check** (extra prelude, include
+directories, ignored warnings).
 
-## Prerequisites
+## Build from source
 
-- JDK 21
-- A Rust toolchain (`cargo`) on `PATH` — the LSP server is compiled from source; upstream
-  does not publish prebuilt binaries.
-
-## First checkout
+You need **JDK 21** and a **Rust toolchain** (`cargo`) — the language server is compiled
+from source.
 
 ```bash
-git clone --recurse-submodules <this-repo>
-# or, if already cloned:
-git submodule update --init
+git clone --recurse-submodules <repo>   # the xs-check core is a git submodule
+./gradlew runIde        # launch a sandbox IDE with the plugin loaded
+./gradlew buildPlugin   # build the installable zip into build/distributions/
 ```
 
-## Build & run
-
-```bash
-./gradlew runIde        # launches a sandbox IDE with the plugin
-./gradlew buildPlugin   # produces build/distributions/*.zip
-```
-
-Either command automatically runs `cargo build --release` on the submodule and bundles the
-binary for the **host** platform into the plugin — no manual binary copying.
-
-Useful tasks:
-
-| Task         | What it does                                                       |
-|--------------|-------------------------------------------------------------------|
-| `buildLsp`   | `cargo build --release` of `xs-check-lsp` in the submodule        |
-| `bundleLsp`  | copies the built binary into `build/generated-resources/binaries` |
-
-## Updating the XS core (low-maintenance path)
-
-Because the submodule is never modified locally, updating is conflict-free:
-
-```bash
-git submodule update --remote xs-check   # pull the latest upstream xs-check
-./gradlew runIde                          # rebuilds the LSP and runs
-git add xs-check && git commit -m "Bump xs-check"
-```
-
-To pin a specific version instead:
-
-```bash
-cd xs-check && git checkout <tag-or-commit> && cd ..
-git add xs-check && git commit -m "Pin xs-check to <ref>"
-```
-
-### Local patches
-
-`patches/` holds local fixes applied on top of the upstream `xs-check` submodule. They are
-kept here (rather than committed into the submodule) so the submodule itself stays clean.
-
-- `0001-sort-semantic-tokens-by-position.patch` — sorts semantic tokens by source position
-  before delta-encoding. Upstream emits them in AST order, which underflows the LSP delta
-  encoding and breaks highlighting after the first variable declaration (e.g. parameter
-  usages render uncolored). **Should be upstreamed**, then deleted here.
-
-`scripts/release.sh` re-applies these patches automatically after syncing the submodule. To
-apply them by hand (e.g. after `git submodule update`):
-
-```bash
-git -C xs-check apply ../patches/*.patch
-```
+Gradle compiles the `xs-check` server and bundles it into the plugin automatically — no
+manual steps.
 
 ## Releasing
 
-Windows (PowerShell) — no setup needed, finds Git Bash and a JDK automatically:
+Updates the `xs-check` core to the latest version, builds, and tags a release:
 
 ```powershell
-.\scripts\release.ps1           # bump xs-check to latest, build, tag
-.\scripts\release.ps1 0.3.0     # also set the plugin version to 0.3.0 first
+.\scripts\release.ps1            # Windows
 ```
-
-macOS / Linux / Git Bash:
 
 ```bash
-./scripts/release.sh
-./scripts/release.sh 0.3.0
+./scripts/release.sh             # macOS / Linux
 ```
 
-The script updates the `xs-check` submodule to the latest upstream, builds the plugin,
-commits the bump, and tags it. If the [GitHub CLI][gh] (`gh`) is installed and an `origin`
-remote exists, it also pushes the tag and creates a GitHub release with the `.zip`
-attached; otherwise it stops after building and tells you the artifact path
-(`build/distributions/xs-check-jb-<version>.zip`).
+Pass a version to set it explicitly (e.g. `release.ps1 0.3.0`). If the GitHub CLI (`gh`) and
+an `origin` remote are set up, it also publishes a GitHub release; otherwise it just builds
+the zip.
 
-Requires a Rust toolchain (`cargo`). It uses `JAVA_HOME`/`java` if set, otherwise
-auto-detects a JetBrains JBR — so on a typical dev machine you don't need to configure a
-JDK at all.
+## Updating the XS core
 
-[gh]: https://cli.github.com/
+```bash
+git submodule update --remote xs-check
+git add xs-check && git commit -m "Bump xs-check"
+```
+
+The `patches/` folder carries one small fix applied on top of the core (a highlighting bug,
+pending upstream). The build and release scripts apply it for you.
+
+---
+
+## Disclaimer
+
+The code in this project is written by [Claude](https://claude.com/claude-code)
+(Anthropic's Claude Code) and managed by [KSneijders](https://github.com/KSneijders).
