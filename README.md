@@ -39,19 +39,28 @@ manual steps.
 
 ## Releasing
 
-Updates the `xs-check` core to the latest version, builds, and tags a release:
-
-```powershell
-.\scripts\release.ps1            # Windows
-```
+Releases are automated. Push a version tag and GitHub Actions builds the Linux + Windows
+server binaries, packages one cross-platform plugin zip, and publishes a GitHub release:
 
 ```bash
-./scripts/release.sh             # macOS / Linux
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
-Pass a version to set it explicitly (e.g. `release.ps1 0.3.0`). If the GitHub CLI (`gh`) and
-an `origin` remote are set up, it also publishes a GitHub release; otherwise it just builds
-the zip.
+The release is named after the tag (without the `v`) and notes which `xs-check` version it
+bundles.
+
+### Build locally
+
+To build the zip yourself (e.g. to install from disk for testing):
+
+```bash
+./scripts/build.sh         # or  .\scripts\build.ps1  on Windows
+./scripts/build.sh 1.2.3   # with an explicit version
+```
+
+It auto-detects a JDK (a JetBrains JBR if `JAVA_HOME`/`java` isn't set) and keeps the local
+patch applied — otherwise it's just `./gradlew buildPlugin`.
 
 ## Updating the XS core
 
@@ -61,7 +70,7 @@ git add xs-check && git commit -m "Bump xs-check"
 ```
 
 The `patches/` folder carries one small fix applied on top of the core (a highlighting bug,
-pending upstream). The build and release scripts apply it for you.
+pending upstream). The local build script and CI apply it for you.
 
 ---
 

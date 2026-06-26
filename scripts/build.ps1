@@ -1,10 +1,10 @@
-# Windows convenience wrapper for scripts/release.sh.
+# Windows convenience wrapper for scripts/build.sh.
 #
-#   .\scripts\release.ps1            # bump xs-check to latest, build, tag
-#   .\scripts\release.ps1 0.3.0      # also set the plugin version to 0.3.0 first
+#   .\scripts\build.ps1            # build with the dev version
+#   .\scripts\build.ps1 1.2.3      # build with an explicit version
 #
-# Finds Git Bash and runs the real release script. No need to set JAVA_HOME --
-# release.sh auto-detects a JetBrains JBR if one isn't already on PATH.
+# Finds Git Bash and runs the real build script. No need to set JAVA_HOME --
+# build.sh auto-detects a JetBrains JBR if one isn't already on PATH.
 $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot   # scripts\.. -> repo root
@@ -26,10 +26,10 @@ if (-not $bash) {
     throw "Git Bash not found. Install Git for Windows: https://git-scm.com/download/win"
 }
 
-# Run release.sh from the repo root so its relative paths resolve.
+# Run build.sh from the repo root so its relative paths resolve.
 Push-Location $repo
 try {
-    & $bash "scripts/release.sh" @args
+    & $bash "scripts/build.sh" @args
     $code = $LASTEXITCODE
 }
 finally {
