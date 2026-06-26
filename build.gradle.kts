@@ -5,7 +5,9 @@ plugins {
 }
 
 group = "com.xscheck"
-version = "0.2.19"
+// Releases set the version from the pushed tag (-PpluginVersion=…); the fallback is only
+// a placeholder for local dev builds (runIde / buildPlugin) where the version is irrelevant.
+version = providers.gradleProperty("pluginVersion").getOrElse("0.0.0-dev")
 
 kotlin {
     jvmToolchain(21)
@@ -107,6 +109,11 @@ sourceSets {
     }
 }
 
-tasks.named("processResources") {
-    dependsOn(bundleLsp)
+// CI builds the server for every platform on separate runners and drops the binaries
+// straight into src/main/resources/binaries/<platform>/, then packages with
+// -PskipLspBuild so this local cargo build is skipped (and doesn't clash with them).
+if (!providers.gradleProperty("skipLspBuild").isPresent) {
+    tasks.named("processResources") {
+        dependsOn(bundleLsp)
+    }
 }

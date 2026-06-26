@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'        # GitHub tag filters are globs, not regex; this matches your v(.*)
+
+permissions:
+  contents: write   # required to create the GitHub release
+
+jobs:
+  # Build the xs-check-lsp server binary on each target OS.
+  build-lsp:
+    name: Build LSP — ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest,  platform: linux-x64, bin: xs-check-lsp }
+          - { os: windows-latest, platform: win32-x64, bin: xs-check-lsp.exe }
+          # To also support macOS, add:
+          # - { os: macos-13,      platform: darwin-x64,  bin: xs-check-lsp }
+          # - { os: macos-latest,  platform: darwin-arm64, bin: xs-check-lsp }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Apply local patches to xs-check
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for p in patches/*.patch; do
+            echo "applying $p"
+            git -C xs-check apply "../$p"
+          done
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: xs-check
+
+      - name: Build xs-check-lsp
+        run: cargo build --release --manifest-path xs-check/Cargo.toml --bin xs-check-lsp
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lsp-${{ matrix.platform }}
+          path: xs-check/target/release/${{ matrix.bin }}
+          if-no-files-found: error
+
+  # Package one cross-platform plugin zip and publish the release.
+  release:
+    name: Package plugin & publish
+    needs: build-lsp
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve versions
+        id: vars
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"                  # $1 from v(.*)
+          git -C xs-check fetch --tags --force --quiet || true
+          xsc="$(git -C xs-check describe --tags --always)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "xsc=$xsc"         >> "$GITHUB_OUTPUT"
+          echo "Plugin $version (bundles xs-check $xsc)"
+
+      - name: Download platform binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lsp-*
+          path: artifacts
+
+      - name: Stage binaries into plugin resources
+        shell: bash
+        run: |
+          mkdir -p src/main/resources/binaries/linux-x64 \
+                   src/main/resources/binaries/win32-x64
+          cp artifacts/lsp-linux-x64/xs-check-lsp     src/main/resources/binaries/linux-x64/xs-check-lsp
+          cp artifacts/lsp-win32-x64/xs-check-lsp.exe src/main/resources/binaries/win32-x64/xs-check-lsp.exe
+          chmod +x src/main/resources/binaries/linux-x64/xs-check-lsp
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build plugin (bundling all platform binaries)
+        run: ./gradlew buildPlugin -PskipLspBuild -PpluginVersion=${{ steps.vars.outputs.version }}
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.vars.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          files: build/distributions/*.zip
+          fail_on_unmatched_files: true
+          body: |
+            **XS Check ${{ steps.vars.outputs.version }}**
+
+            Bundles the [`xs-check`](https://github.com/Divy1211/xs-check) language server **${{ steps.vars.outputs.xsc }}**.
+
+            Supports Linux (x64) and Windows (x64). Install via
+            **Settings → Plugins → ⚙ → Install Plugin from Disk…**
