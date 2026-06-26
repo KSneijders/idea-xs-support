@@ -3,6 +3,10 @@
 Language support for AoE2:DE's **XS** scripting language in IntelliJ-based IDEs
 (IntelliJ IDEA, PyCharm, and friends).
 
+It's essentially a JetBrains port of the official VSCode extension,
+[vsc-xs-support](https://github.com/Divy1211/vsc-xs-support) — same `xs-check` language
+server, just wired into IntelliJ instead of VSCode.
+
 **Features**
 
 - Error & warning diagnostics
@@ -71,6 +75,22 @@ git add xs-check && git commit -m "Bump xs-check"
 
 The `patches/` folder carries one small fix applied on top of the core (a highlighting bug,
 pending upstream). The local build script and CI apply it for you.
+
+---
+
+## Acknowledgements
+
+This plugin stands entirely on the work of [**Divy1211**](https://github.com/Divy1211) —
+huge thanks. ❤️ All the hard parts of XS tooling are theirs; this project only brings them
+to JetBrains IDEs.
+
+- [**xs-check**](https://github.com/Divy1211/xs-check) — the XS parser, type checker, and
+  language server that does *all* the real work: diagnostics, completion, hover docs, and
+  semantic tokens. This plugin is little more than a wrapper around it.
+- [**vsc-xs-support**](https://github.com/Divy1211/vsc-xs-support) — the official VSCode
+  extension this plugin is modeled on.
+
+If you write XS, go star both repos.
 
 ---
 
