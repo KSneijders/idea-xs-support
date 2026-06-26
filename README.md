@@ -81,7 +81,7 @@ pending upstream). The local build script and CI apply it for you.
 ## Acknowledgements
 
 This plugin stands entirely on the work of [**Divy1211**](https://github.com/Divy1211) —
-huge thanks. ❤️ All the hard parts of XS tooling are theirs; this project only brings them
+huge thanks to them ❤️. All the hard parts of XS tooling are theirs; this project only brings them
 to JetBrains IDEs.
 
 - [**xs-check**](https://github.com/Divy1211/xs-check) — the XS parser, type checker, and
@@ -90,7 +90,7 @@ to JetBrains IDEs.
 - [**vsc-xs-support**](https://github.com/Divy1211/vsc-xs-support) — the official VSCode
   extension this plugin is modeled on.
 
-If you write XS, go star both repos.
+If you write XS, go star both repos!
 
 ---
 
