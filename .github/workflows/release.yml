@@ -22,7 +22,7 @@ jobs:
           # - { os: macos-13,      platform: darwin-x64,  bin: xs-check-lsp }
           # - { os: macos-latest,  platform: darwin-arm64, bin: xs-check-lsp }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -43,7 +43,7 @@ jobs:
       - name: Build xs-check-lsp
         run: cargo build --release --manifest-path xs-check/Cargo.toml --bin xs-check-lsp
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lsp-${{ matrix.platform }}
           path: xs-check/target/release/${{ matrix.bin }}
@@ -55,7 +55,7 @@ jobs:
     needs: build-lsp
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -71,7 +71,7 @@ jobs:
           echo "Plugin $version (bundles xs-check $xsc)"
 
       - name: Download platform binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: lsp-*
           path: artifacts
@@ -85,17 +85,17 @@ jobs:
           cp artifacts/lsp-win32-x64/xs-check-lsp.exe src/main/resources/binaries/win32-x64/xs-check-lsp.exe
           chmod +x src/main/resources/binaries/linux-x64/xs-check-lsp
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Build plugin (bundling all platform binaries)
         run: ./gradlew buildPlugin -PskipLspBuild -PpluginVersion=${{ steps.vars.outputs.version }}
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.vars.outputs.version }}
           tag_name: ${{ github.ref_name }}
