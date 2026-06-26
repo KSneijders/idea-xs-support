@@ -1,0 +1,49 @@
+<idea-plugin>
+    <id>com.xscheck.xs-check-jb</id>
+    <name>XS Check</name>
+    <vendor>Alian713</vendor>
+    <description><![CDATA[
+        Language support for AoE2:DE's XS scripting language.<br><br>
+        Provides diagnostics, completion, hover documentation, and semantic highlighting
+        via the XS Check LSP server.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.redhat.devtools.lsp4ij</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceImplementation="com.xscheck.XsSettings"/>
+        <projectConfigurable parentId="tools"
+                             instance="com.xscheck.XsSettingsConfigurable"
+                             id="com.xscheck.settings"
+                             displayName="XS Check"/>
+        <fileType name="XS Script"
+                  implementationClass="com.xscheck.XsFileType"
+                  language="XS"
+                  extensions="xs"
+                  fieldName="INSTANCE"/>
+
+        <lang.syntaxHighlighterFactory language="XS"
+                                       implementationClass="com.xscheck.XsSyntaxHighlighterFactory"/>
+
+        <!-- Default XS colors (VSCode-style). Cover both classic and new-UI scheme names. -->
+        <additionalTextAttributes scheme="Default"        file="colors/xs_light.xml"/>
+        <additionalTextAttributes scheme="Light"          file="colors/xs_light.xml"/>
+        <additionalTextAttributes scheme="IntelliJ Light" file="colors/xs_light.xml"/>
+        <additionalTextAttributes scheme="Darcula"        file="colors/xs_dark.xml"/>
+        <additionalTextAttributes scheme="Dark"           file="colors/xs_dark.xml"/>
+        <additionalTextAttributes scheme="High contrast"  file="colors/xs_dark.xml"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="com.xscheck.server"
+                name="XS Check"
+                factoryClass="com.xscheck.XsServerFactory"/>
+        <fileNamePatternMapping patterns="*.xs"
+                                serverId="com.xscheck.server"
+                                languageId="xs"/>
+        <!-- Colors the LSP `parameter` semantic token; scoped to this server. -->
+        <semanticTokensColorsProvider serverId="com.xscheck.server"
+                                      class="com.xscheck.XsSemanticTokensColorsProvider"/>
+    </extensions>
+</idea-plugin>

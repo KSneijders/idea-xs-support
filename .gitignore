@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# IntelliJ Platform plugin tooling
+.intellijPlatform/
+
+# IDE project config (local)
+.idea/
+
+# Generated LSP binary (built from the xs-check submodule by the `bundleLsp` task)
+src/main/resources/binaries/
+
+# Python venv (docs/tooling scratch)
+.venv/
+
+# OS / editor noise
+*.iml
+.DS_Store

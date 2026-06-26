@@ -1,0 +1,19 @@
+<?xml version='1.0'?>
+<!-- XS default colors for dark schemes (VSCode Dark+ palette). -->
+<list>
+    <option name="XS_FUNCTION">
+        <value><option name="FOREGROUND" value="DCDCAA"/></value>
+    </option>
+    <option name="XS_TYPE">
+        <value><option name="FOREGROUND" value="4EC9B0"/></value>
+    </option>
+    <option name="XS_CONSTANT">
+        <value><option name="FOREGROUND" value="4FC1FF"/></value>
+    </option>
+    <option name="XS_DOC_TAG">
+        <value><option name="FOREGROUND" value="569CD6"/></value>
+    </option>
+    <option name="XS_PARAMETER">
+        <value><option name="FOREGROUND" value="9CDCFE"/></value>
+    </option>
+</list>

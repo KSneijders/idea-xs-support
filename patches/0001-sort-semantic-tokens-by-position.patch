@@ -1,0 +1,18 @@
+diff --git a/xsc-lsp/src/semantic_tokens/gen_tokens.rs b/xsc-lsp/src/semantic_tokens/gen_tokens.rs
+index 458560f..eb0d9a6 100644
+--- a/xsc-lsp/src/semantic_tokens/gen_tokens.rs
++++ b/xsc-lsp/src/semantic_tokens/gen_tokens.rs
+@@ -204,7 +204,12 @@ pub fn gen_tokens(src: &Rope, ast: &Vec<Spanned<AstNode>>, env: &TypeEnv) -> Vec
+     for node in ast {
+         xs_toks(node, &mut toks, &mut info, env);
+     }
+-    
++
++    // LSP requires semantic tokens in source order; AST traversal can emit them
++    // out of order (e.g. a var def's value before its name), which underflows the
++    // delta encoding. Sort by position before encoding.
++    toks.sort_by_key(|tok| tok.span.start);
++
+     let mut data = Vec::new();
+     let mut last_line = 0;
+     let mut last_col = 0;

@@ -1,0 +1,3 @@
+[submodule "xs-check"]
+	path = xs-check
+	url = https://github.com/Divy1211/xs-check.git
