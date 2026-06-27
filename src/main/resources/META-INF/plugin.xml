@@ -30,6 +30,12 @@
         <lang.parserDefinition language="XS"
                                implementationClass="com.xscheck.XsParserDefinition"/>
 
+        <!-- Completion & hover for *injected* XS fragments (proxied to an isolated server). -->
+        <completion.contributor language="XS"
+                                implementationClass="com.xscheck.XsInjectionCompletionContributor"/>
+        <lang.documentationProvider language="XS"
+                                    implementationClass="com.xscheck.XsInjectionDocumentationProvider"/>
+
         <!-- Default XS colors (VSCode-style). Cover both classic and new-UI scheme names. -->
         <additionalTextAttributes scheme="Default"        file="colors/xs_light.xml"/>
         <additionalTextAttributes scheme="Light"          file="colors/xs_light.xml"/>
