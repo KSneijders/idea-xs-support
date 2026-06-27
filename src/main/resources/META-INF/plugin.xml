@@ -26,6 +26,10 @@
         <lang.syntaxHighlighterFactory language="XS"
                                        implementationClass="com.xscheck.XsSyntaxHighlighterFactory"/>
 
+        <!-- Flat PSI so XS can be a language-injection target (lexer highlighting only). -->
+        <lang.parserDefinition language="XS"
+                               implementationClass="com.xscheck.XsParserDefinition"/>
+
         <!-- Default XS colors (VSCode-style). Cover both classic and new-UI scheme names. -->
         <additionalTextAttributes scheme="Default"        file="colors/xs_light.xml"/>
         <additionalTextAttributes scheme="Light"          file="colors/xs_light.xml"/>
