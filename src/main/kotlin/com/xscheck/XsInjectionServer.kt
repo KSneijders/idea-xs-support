@@ -7,6 +7,8 @@ import com.google.gson.JsonPrimitive
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import org.eclipse.lsp4j.ClientCapabilities
 import org.eclipse.lsp4j.CompletionItem
@@ -31,8 +33,11 @@ import org.eclipse.lsp4j.WorkspaceClientCapabilities
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.services.LanguageClient
 import org.eclipse.lsp4j.services.LanguageServer
+import java.io.IOException
+import java.io.OutputStream
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * A dedicated, isolated `xs-check-lsp` process that answers completion / hover for
@@ -50,6 +55,8 @@ class XsInjectionServer(private val project: Project) : Disposable {
     private var process: Process? = null
     private var server: LanguageServer? = null
     private var version = 0
+    /** Last text pushed to the running server; lets [sync] skip a re-lint when nothing changed. */
+    private var lastSyncedText: String? = null
 
     @Synchronized
     private fun ensureStarted(): LanguageServer? {
@@ -57,11 +64,14 @@ class XsInjectionServer(private val project: Project) : Disposable {
         // Clean up a dead instance before restarting.
         process?.destroy()
         server = null
+        lastSyncedText = null
         try {
             val proc = ProcessBuilder(XsServerFactory.binary.absolutePath)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
-            val launcher = LSPLauncher.createClientLauncher(InjectionClient(), proc.inputStream, proc.outputStream)
+            val launcher = LSPLauncher.createClientLauncher(
+                InjectionClient(), proc.inputStream, ForgivingOutputStream(proc.outputStream)
+            )
             val srv = launcher.remoteProxy
             launcher.startListening()
 
@@ -70,7 +80,10 @@ class XsInjectionServer(private val project: Project) : Disposable {
                     workspace = WorkspaceClientCapabilities().apply { configuration = true }
                 }
             }
-            srv.initialize(init).get(10, TimeUnit.SECONDS)
+            // Cancelable: this can run inside a completion/hover read action, so it must yield
+            // promptly to a pending write action (typing) instead of blocking the EDT for 10s.
+            awaitCancelable(srv.initialize(init), INIT_TIMEOUT_MS)
+                ?: error("XS injection server did not initialize within ${INIT_TIMEOUT_MS}ms")
             srv.initialized(InitializedParams())
 
             // Open the document once with empty text so the server's caches are populated
@@ -79,6 +92,7 @@ class XsInjectionServer(private val project: Project) : Disposable {
             srv.textDocumentService.didOpen(
                 DidOpenTextDocumentParams(TextDocumentItem(uri, "xs", version, ""))
             )
+            lastSyncedText = ""
 
             process = proc
             server = srv
@@ -88,29 +102,43 @@ class XsInjectionServer(private val project: Project) : Disposable {
             process?.destroy()
             process = null
             server = null
+            lastSyncedText = null
             return null
         }
     }
 
+    /**
+     * Pushes [text] to the running server, but only when it differs from what we last sent. Every
+     * didChange triggers a full re-lint there — which deep-clones the ~1400-symbol built-in prelude
+     * env and re-type-checks the fragment — so re-sending unchanged text (e.g. on hover, which never
+     * edits the fragment) would force a redundant re-analysis for an identical result. Skipping it
+     * lets hover and repeated lookups read straight from the server's already-built cache.
+     */
+    @Synchronized
     private fun sync(srv: LanguageServer, text: String) {
+        if (text == lastSyncedText) return
         val id = VersionedTextDocumentIdentifier(uri, ++version)
         srv.textDocumentService.didChange(
             DidChangeTextDocumentParams(id, listOf(TextDocumentContentChangeEvent(text)))
         )
+        lastSyncedText = text
     }
 
     fun completion(text: String, position: Position): List<CompletionItem> {
         val srv = ensureStarted() ?: return emptyList()
         return try {
             sync(srv, text)
-            val result = srv.textDocumentService
-                .completion(CompletionParams(TextDocumentIdentifier(uri), position))
-                .get(3, TimeUnit.SECONDS)
+            val result = awaitCancelable(
+                srv.textDocumentService.completion(CompletionParams(TextDocumentIdentifier(uri), position)),
+                REQUEST_TIMEOUT_MS,
+            )
             when {
                 result == null -> emptyList()
                 result.isLeft -> result.left
                 else -> result.right.items
             }
+        } catch (pce: ProcessCanceledException) {
+            throw pce
         } catch (t: Throwable) {
             thisLogger().debug("XS injection completion failed", t)
             emptyList()
@@ -121,12 +149,40 @@ class XsInjectionServer(private val project: Project) : Disposable {
         val srv = ensureStarted() ?: return null
         return try {
             sync(srv, text)
-            srv.textDocumentService
-                .hover(HoverParams(TextDocumentIdentifier(uri), position))
-                .get(3, TimeUnit.SECONDS)
+            awaitCancelable(
+                srv.textDocumentService.hover(HoverParams(TextDocumentIdentifier(uri), position)),
+                REQUEST_TIMEOUT_MS,
+            )
+        } catch (pce: ProcessCanceledException) {
+            throw pce
         } catch (t: Throwable) {
             thisLogger().debug("XS injection hover failed", t)
             null
+        }
+    }
+
+    /**
+     * Waits for [future] up to [timeoutMs], but polls in small slices and calls
+     * [ProgressManager.checkCanceled] between them. Completion/hover run inside a read action; a
+     * plain blocking `get()` there is non-cancellable and stalls a pending write action (typing),
+     * freezing the EDT. Polling lets a pending write cancel us promptly (via [ProcessCanceledException]).
+     *
+     * Returns `null` on timeout; propagates [ProcessCanceledException] on cancellation.
+     */
+    private fun <T> awaitCancelable(future: CompletableFuture<T>, timeoutMs: Long): T? {
+        val deadlineNanos = System.nanoTime() + timeoutMs * 1_000_000
+        while (true) {
+            ProgressManager.checkCanceled()
+            val remainingMs = (deadlineNanos - System.nanoTime()) / 1_000_000
+            if (remainingMs <= 0) {
+                future.cancel(true)
+                return null
+            }
+            try {
+                return future.get(minOf(remainingMs, POLL_INTERVAL_MS), TimeUnit.MILLISECONDS)
+            } catch (_: TimeoutException) {
+                // Re-check cancellation and keep polling until the deadline.
+            }
         }
     }
 
@@ -137,6 +193,31 @@ class XsInjectionServer(private val project: Project) : Disposable {
         } catch (_: Throwable) {
         } finally {
             process?.destroy()
+        }
+    }
+
+    /**
+     * Wraps the isolated server's stdin so a write that fails because the process has already died is
+     * dropped instead of thrown. Server→client requests (e.g. `workspace/configuration`) are answered
+     * on LSP4J's reader thread, which then writes the response back through here; if the process exited
+     * in the meantime — a crash, or `destroy()` from [dispose] / the [ensureStarted] restart path — the
+     * pipe is closed and the write raises `IOException: The pipe is being closed`. LSP4J has no handler
+     * for a failed response write, so it surfaces as a spurious "Internal error". A response to a dead
+     * helper is worthless anyway (completion/hover already degrade to empty and [ensureStarted] respawns),
+     * so swallowing the failure — logged at debug — is safe and removes the noise.
+     */
+    private class ForgivingOutputStream(private val delegate: OutputStream) : OutputStream() {
+        override fun write(b: Int) = guarded { delegate.write(b) }
+        override fun write(b: ByteArray, off: Int, len: Int) = guarded { delegate.write(b, off, len) }
+        override fun flush() = guarded { delegate.flush() }
+        override fun close() = guarded { delegate.close() }
+
+        private fun guarded(block: () -> Unit) {
+            try {
+                block()
+            } catch (e: IOException) {
+                thisLogger().debug("Dropped a write to a closed XS injection server pipe", e)
+            }
         }
     }
 
@@ -165,6 +246,13 @@ class XsInjectionServer(private val project: Project) : Disposable {
     }
 
     companion object {
+        /** Overall budget for a single completion/hover request before giving up. */
+        private const val REQUEST_TIMEOUT_MS = 3_000L
+        /** Overall budget for the one-time server initialization handshake. */
+        private const val INIT_TIMEOUT_MS = 10_000L
+        /** Slice between cancellation checks while waiting on a server response. */
+        private const val POLL_INTERVAL_MS = 25L
+
         fun getInstance(project: Project): XsInjectionServer =
             project.getService(XsInjectionServer::class.java)
     }

@@ -4,8 +4,8 @@
     <vendor>Alian713</vendor>
     <description><![CDATA[
         Language support for AoE2:DE's XS scripting language.<br><br>
-        Provides diagnostics, completion, hover documentation, and semantic highlighting
-        via the XS Check LSP server.
+        Provides diagnostics, completion, hover documentation, signature help, inlay hints,
+        go-to-definition, and semantic highlighting via the XS Check LSP server.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -29,6 +29,13 @@
         <!-- Flat PSI so XS can be a language-injection target (lexer highlighting only). -->
         <lang.parserDefinition language="XS"
                                implementationClass="com.xscheck.XsParserDefinition"/>
+
+        <!-- Signature help (textDocument/signatureHelp). LSP4IJ auto-registers this only for
+             TEXT/textmate; a registered language like XS must opt in explicitly. Go-to-definition
+             and inlay hints, by contrast, are wired up by LSP4IJ out-of-the-box. -->
+        <codeInsight.parameterInfo language="XS"
+                                   order="first"
+                                   implementationClass="com.redhat.devtools.lsp4ij.features.signatureHelp.LSPParameterInfoHandler"/>
 
         <!-- Completion & hover for *injected* XS fragments (proxied to an isolated server). -->
         <completion.contributor language="XS"
