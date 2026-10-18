@@ -7,5 +7,5 @@ object XsFileType : LanguageFileType(XsLanguage) {
     override fun getName() = "XS Script"
     override fun getDescription() = "AoE2:DE XS Script file"
     override fun getDefaultExtension() = "xs"
-    override fun getIcon(): Icon? = null
+    override fun getIcon(): Icon = XsIcons.FILE
 }
