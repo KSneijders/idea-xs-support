@@ -3,6 +3,7 @@ package com.xscheck
 import com.intellij.openapi.project.Project
 import com.redhat.devtools.lsp4ij.LanguageServerFactory
 import com.redhat.devtools.lsp4ij.client.LanguageClientImpl
+import com.redhat.devtools.lsp4ij.client.features.LSPClientFeatures
 import com.redhat.devtools.lsp4ij.server.ProcessStreamConnectionProvider
 import com.redhat.devtools.lsp4ij.server.StreamConnectionProvider
 import java.io.File
@@ -14,6 +15,9 @@ class XsServerFactory : LanguageServerFactory {
 
     override fun createLanguageClient(project: Project): LanguageClientImpl =
         XsLanguageClient(project)
+
+    override fun createClientFeatures(): LSPClientFeatures =
+        LSPClientFeatures().setCompletionFeature(XsCompletionFeature())
 
     companion object {
         val binary: File by lazy { extractBinary() }

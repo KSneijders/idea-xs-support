@@ -24,7 +24,7 @@ dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2025.1")
         // Check https://plugins.jetbrains.com/plugin/23257-lsp4ij for the latest version
-        plugin("com.redhat.devtools.lsp4ij:0.7.0")
+        plugin("com.redhat.devtools.lsp4ij:0.21.0")
     }
 }
 
