@@ -26,15 +26,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Apply local patches to xs-check
-        shell: bash
-        run: |
-          shopt -s nullglob
-          for p in patches/*.patch; do
-            echo "applying $p"
-            git -C xs-check apply "../$p"
-          done
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:

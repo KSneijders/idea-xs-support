@@ -63,8 +63,8 @@ To build the zip yourself (e.g. to install from disk for testing):
 ./scripts/build.sh 1.2.3   # with an explicit version
 ```
 
-It auto-detects a JDK (a JetBrains JBR if `JAVA_HOME`/`java` isn't set) and keeps the local
-patch applied — otherwise it's just `./gradlew buildPlugin`.
+It auto-detects a JDK (a JetBrains JBR if `JAVA_HOME`/`java` isn't set) — otherwise it's
+just `./gradlew buildPlugin`.
 
 ## Updating the XS core
 
@@ -72,9 +72,6 @@ patch applied — otherwise it's just `./gradlew buildPlugin`.
 git submodule update --remote xs-check
 git add xs-check && git commit -m "Bump xs-check"
 ```
-
-The `patches/` folder carries one small fix applied on top of the core (a highlighting bug,
-pending upstream). The local build script and CI apply it for you.
 
 ---
 

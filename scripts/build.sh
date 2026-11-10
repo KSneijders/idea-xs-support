@@ -56,22 +56,6 @@ ensure_java() {
 }
 ensure_java
 
-# --- Keep the local xs-check patches applied (idempotent) --------------------
-apply_patches() {
-  shopt -s nullglob
-  for patch in patches/*.patch; do
-    if git -C xs-check apply --reverse --check "../$patch" 2>/dev/null; then
-      : # already applied
-    elif git -C xs-check apply --check "../$patch" 2>/dev/null; then
-      git -C xs-check apply "../$patch"; echo "==> Applied patch: $patch"
-    else
-      echo "==> WARNING: patch no longer applies (upstream may have fixed it): $patch" >&2
-    fi
-  done
-  shopt -u nullglob
-}
-apply_patches
-
 # --- Build -------------------------------------------------------------------
 echo "==> Building plugin..."
 if [[ -n "$version_arg" ]]; then
